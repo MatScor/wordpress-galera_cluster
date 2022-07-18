@@ -1,0 +1,10 @@
+---
+# tasks file for mysql
+- name: Install php-mysql
+  apt: name=php-mysql state=latest
+
+- name: Install pip
+  apt: name=pip state=latest
+
+- name: Install MySQL python module
+  shell: pip install pymysql

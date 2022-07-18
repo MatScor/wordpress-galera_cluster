@@ -1,0 +1,20 @@
+---
+- name: Aggiorniamo l'istanza e rimuviamo i pacchetti non piu' necessari
+  become: true
+  hosts: all
+  tasks:
+    - name: Eseguiamo un dist-upgrade
+      apt:
+        upgrade: dist
+        update_cache: yes
+    - name: Eseguiamo un upgrade dei pacchetti
+      apt:
+        upgrade: full
+        update_cache: yes
+    - name: Istalliamo unattended-upgrades
+      apt:
+        name: unattended-upgrades
+        update_cache: yes
+    - name: RI-puliamo i pacchetti non piu' necessari
+      apt:
+        autoremove: yes

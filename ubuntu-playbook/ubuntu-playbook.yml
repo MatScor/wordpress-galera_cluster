@@ -1,0 +1,240 @@
+---
+- hosts: localhost
+  name:  ubuntu-playbook.yml
+  become: true
+  gather_facts: false
+  vars:
+    
+    TempDir:                   /tmp                                 # Cartella temporanea sul server ansible
+    WorkingDir:                /tmp/ubuntu20                        # Cartella di lavoro sul server ansible
+    UbuntuISO:                 ubuntu-20.04.4-live-server-amd64.iso # Nome ISO
+    UbuntuISO_URL:             https://releases.ubuntu.com/20.04/   # URL per il download della ISO 
+    UbuntuNewISO:              ubuntu2004.iso                       # Nome nuova ISO creata
+    vCenterServer:             *****                                # FQDN vCenter
+    vCenterUser:               *****                                # Username vCenter
+    vCenterPassword:           *****                                # Password vCenter
+    DataCenter:                *****                                # Nome datacenter
+    vSphereCluster:            *****                                # Nome cluster
+    VMFolder:                  TEST                                 # Nome cartella di destinazione sul vCenter                                   
+    UbuntuVMDiskSize:          50                                   # Dimensioni disco VM in GB
+    UbuntuVMMemorySize:        4096                                 # Dimensioni RAM in MB
+    UbuntuVMCPUs:              2                                    # Numero CPU 
+    UbuntuVMCPUCores:          1                                    # Numero di cores
+    UbuntuOSLocale:            en_US.UTF-8                          # Settaggio locale Sistema Operativo
+    UbuntuOSKeyboardLayout:    it                                   # Lingua tastiera 
+    UbuntuOSKeyboardVariant:   en                                   # Seconda ingua tastiera
+    UbuntuOSIPv4DNS:           ********                             # Server DNS impostato sulla VM
+    UbuntuOSSearchDomain:      ********                             # Dominio utilizzato di default per la ricerca su DNS
+    UbuntuOSUser:              ubuntu                               # Utente da creare
+    UbuntuOSPassword:          ubuntu                               # Password utente
+    UbuntuVMName:              ********                             # Nome VM
+    Datastore:                 ********                             # Nome datastore dove posizionare la VM              
+    DatastoreDir:              ********                             # Cartella dove eseguire l'upload della ISO  
+    UbuntuOSIPv4Address:       ********                             # IP VM / netmask (es. /24)
+    UbuntuOSIPv4Gateway:       ********                             # IP gateway
+    UbuntuVMPortGroup:         ********                             # Nome network da assegnare alla VM 
+    UbuntuOSHostname:          ********                             # Hostname
+  tasks:
+    - name: Creazione cartella di lavoro
+      ansible.builtin.file:
+        path: "{{ WorkingDir }}"
+        state: directory
+
+    - name: Creazione della cartella dove verrà montata la ISO  
+      ansible.builtin.file:
+        path: "{{ WorkingDir }}/iso"
+        state: directory    
+
+    - name: Controllo esistenza ISO sul server
+      ansible.builtin.stat:
+        path: "{{ TempDir }}/{{ UbuntuISO }}"
+      register: InstallerFileCheck
+
+
+    - name: Download ISO (se non già presente)
+      ansible.builtin.get_url:
+        url:  "{{ UbuntuISO_URL }}{{ UbuntuISO }}"
+        dest: "{{ TempDir }}/{{ UbuntuISO }}"
+      when:
+        - InstallerFileCheck.stat.exists != true
+        
+
+    - name: Monto la ISO
+      ansible.posix.mount:
+        path:   "{{ WorkingDir }}/iso"
+        src:    "{{ TempDir }}/{{ UbuntuISO }}"
+        fstype: iso9660
+        opts:   ro,noauto
+        state:  mounted
+
+    - name: Copio il file txt.cfg dalla ISO
+      ansible.builtin.copy: 
+        src: "{{ WorkingDir }}/iso/isolinux/txt.cfg"
+        dest: "{{ WorkingDir }}/isocopy/isolinux/"
+        mode: "666"
+
+
+    - name: Modifico il file txt.cfg per impostare l'autoinstallazione 
+      ansible.builtin.replace:
+        dest: "{{ WorkingDir }}/isocopy/isolinux/txt.cfg"
+        regexp: 'append   initrd=/casper/initrd quiet  ---'
+        replace: 'append   initrd=/casper/initrd quiet --- autoinstall ds=nocloud;s=/cdrom/autoinstall/'
+
+
+    - name: Creo una cartella dove raccogliere i parametri della VM 
+      ansible.builtin.file:
+        path: "{{ WorkingDir }}/isocopy/autoinstall"
+        state: directory
+
+
+    - name: Copio i dati del template "Ubuntu_user-data" nella cartella
+      ansible.builtin.template: 
+        src: ./Ubuntu_user-data.j2
+        dest: "{{ WorkingDir }}/isocopy/autoinstall/user-data"
+        mode: "666"
+
+
+    - name: Creo un file vuoto per i metadati
+      ansible.builtin.file:
+        path: "{{ WorkingDir }}/isocopy/autoinstall/meta-data"
+        state: touch
+        mode: "666"
+
+
+    - name: Creo una nuova ISO contenente i dati modificati
+      shell: "xorrisofs -relaxed-filenames -J -R -o /tmp/ubuntu2004.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table /tmp/ubuntu20/iso/ /tmp/ubuntu20/isocopy/"
+      args:
+       chdir: "{{ WorkingDir }}/isocopy/"
+
+
+    - name: Smonto la ISO originale
+      ansible.posix.mount:
+        path:   "{{ WorkingDir }}/iso"
+        src:    "{{ TempDir }}/{{ UbuntuISO }}"
+        fstype: iso9660
+        opts:   ro,noauto
+        state:  absent
+
+
+    - name: Eseguo l'upload della ISO modificata sul datastore
+      community.vmware.vsphere_copy: 
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        datacenter: "{{ DataCenter }}"
+        src: "{{ TempDir }}/{{ UbuntuNewISO }}" 
+        datastore: "{{ Datastore }}"
+        path: "{{ DatastoreDir }}/{{ UbuntuNewISO}}"
+
+    - name: Creo la VM
+      community.vmware.vmware_guest:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        name: "{{ UbuntuVMName }}"
+        state: poweredon
+        guest_id: ubuntu64Guest
+        cluster: "{{ vSphereCluster }}"
+        datacenter: "{{ DataCenter }}"
+        folder: "{{ VMFolder }}"
+        disk:
+        - size_gb: "{{ UbuntuVMDiskSize }}"
+          type: thin
+          datastore: "{{ Datastore }}"
+        hardware:
+          memory_mb: "{{ UbuntuVMMemorySize }}"
+          num_cpus: "{{ UbuntuVMCPUs }}"
+          num_cpu_cores_per_socket: "{{ UbuntuVMCPUCores }}"
+          scsi: paravirtual
+        networks:
+          - name: "{{ UbuntuVMPortGroup }}"
+            device_type: vmxnet3
+        cdrom:
+          - controller_number: 0
+            unit_number: 0
+            type: iso
+            iso_path: "[{{ Datastore }}] {{ DatastoreDir }}/{{ UbuntuNewISO }}"
+            state: present
+
+
+    - name: Controllo se la VM è pronta
+      community.vmware.vmware_guest_info:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        datacenter: "{{ DataCenter }}"
+        validate_certs: no
+        name: "{{ UbuntuVMName }}"
+        schema: vsphere
+      register: vm_facts
+      until: vm_facts.instance.guest.hostName is search(UbuntuOSHostname)
+      retries: 30
+      delay: 60
+
+
+    - name: Imposto la password per l'utenza da creare
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        vm_id: "{{ UbuntuVMName }}"
+        vm_username: "{{ UbuntuOSUser }}"
+        vm_password: VMware1!  #password settata nel template 
+        vm_shell: /usr/bin/echo
+        vm_shell_args: "'{{ UbuntuOSUser }}:{{ UbuntuOSPassword }}' | sudo chpasswd"
+
+
+    - name: Copio i dati del template per la rete in un nuovo file 
+      ansible.builtin.template: 
+        src: ./Ubuntu_Netplan.j2
+        dest: "{{ WorkingDir }}/00-installer-config.yaml"
+        mode: "666"
+
+
+    - name: eseguo l'upload del file appena creato sulla VM
+      community.vmware.vmware_guest_file_operation:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        vm_id: "{{ UbuntuVMName }}"
+        vm_username: "{{ UbuntuOSUser }}"
+        vm_password: ubuntu
+        copy:
+            src: "{{ WorkingDir }}/00-installer-config.yaml"
+            dest: "/home/{{ UbuntuOSUser }}/00-installer-config.yaml"
+
+
+    - name: Sostituisco il nuovo file di configurazione della network
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        vm_id: "{{ UbuntuVMName }}"
+        vm_username: "{{ UbuntuOSUser }}"
+        vm_password: ubuntu
+        vm_shell: /usr/bin/sudo
+        vm_shell_args: "mv /home/{{ UbuntuOSUser }}/00-installer-config.yaml /etc/netplan/00-installer-config.yaml"
+
+
+    - name: Applico le modifiche alla rete
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vCenterServer }}"
+        username: "{{ vCenterUser }}"
+        password: "{{ vCenterPassword }}"
+        validate_certs: no
+        vm_id: "{{ UbuntuVMName }}"
+        vm_username: "{{ UbuntuOSUser }}"
+        vm_password: ubuntu
+        vm_shell: /usr/bin/sudo
+        vm_shell_args: netplan apply
+
+
+    - name: Elimino la cartella di lavoro
+      ansible.builtin.file:
+        path: "{{ WorkingDir }}"
+        state: absent

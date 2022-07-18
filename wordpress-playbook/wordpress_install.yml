@@ -1,0 +1,13 @@
+---
+- hosts: servers
+  become: true
+  gather_facts: False
+  roles:
+    - php
+    - wordpress
+
+- hosts: haproxy
+  become: true
+  gather_facts: False
+  roles:
+    - php

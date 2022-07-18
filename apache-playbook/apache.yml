@@ -1,0 +1,54 @@
+---
+- hosts: all
+  become: true
+  vars:
+    http_host: "wordpress_test"
+    http_conf: "http.conf"
+    http_port: "80" 
+
+  tasks:
+    - name: Installo l'ultima versione di apache
+      apt: name=apache2 update_cache=yes state=latest
+
+    - name: Creo la documentroot di wordpress_test
+      ansible.builtin.file:
+        path: "/var/www/html/{{ http_host }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copio il template della mia pagina di index nella documentroot
+      template:
+        src: "files/index.html.j2"
+        dest: "/var/www/html/{{ http_host }}/index.html"
+
+    - name : Creo l'utenza apache che gestirà il virtual-host
+      shell: useradd apache ; chown -R apache. /var/www/ /etc/apache2
+
+    - name: Importo la configurazione del mio virtual-host
+      template:
+        src: "files/apache.conf.j2"
+        dest: "/etc/apache2/sites-available/{{ http_conf }}"
+      notify: restart-apache
+   
+    - name: Abilito il mio virtual-host
+      ansible.builtin.file:
+        src: /etc/apache2/sites-available/http.conf
+        dest: /etc/apache2/sites-enabled/http.conf
+        owner: apache 
+        group: apache
+        state: link
+
+    - name: Disabilito la configurazione di default di apache
+      shell: unlink /etc/apache2/sites-available/000-default.conf
+
+    - name: Abilito la porta 80 del server #se non gestita da un FW esterno
+      ufw:
+        rule: allow
+        port: "{{ http_port }}"
+        proto: tcp
+
+  handlers:
+    - name: restart-apache
+      service:
+        name: apache2
+        state: restarted

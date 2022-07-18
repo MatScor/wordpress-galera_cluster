@@ -1,0 +1,20 @@
+[all:vars]
+
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_ssh_user="ubuntu"
+ansible_ssh_pass="ubuntu"
+
+[servers]
+
+10.159.80.121
+10.159.80.123
+
+[database]
+
+10.159.80.124
+10.159.80.125
+10.159.80.126
+
+[haproxy]
+
+10.159.80.120

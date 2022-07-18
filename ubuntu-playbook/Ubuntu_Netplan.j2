@@ -1,0 +1,12 @@
+network:
+  ethernets:
+    ens192:
+      addresses:
+      - {{ UbuntuOSIPv4Address }} 
+      gateway4: {{ UbuntuOSIPv4Gateway }}
+      nameservers:
+        addresses:
+        - {{ UbuntuOSIPv4DNS }}
+        search:
+        - {{ UbuntuOSSearchDomain }}
+  version: 2

@@ -1,0 +1,4 @@
+http_host: "wordpress_test" #nome virtual-host
+http_conf: "http.conf"      #nome configurazione virtual-host
+http_port: "80"             #porta utilizzata
+

@@ -1,0 +1,10 @@
+---  
+- name: Installazione e configurazione wordpress
+  hosts: "all"
+  become: yes
+  become_method: sudo
+
+- import_playbook: python_install.yml
+- import_playbook: mysql_conf.yml
+- import_playbook: wordpress_install.yml 
+

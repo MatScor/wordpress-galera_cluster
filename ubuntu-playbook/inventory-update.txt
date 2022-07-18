@@ -1,0 +1,13 @@
+[all:vars]
+
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_ssh_user="ubuntu"
+ansible_ssh_pass="ubuntu"
+
+[hosts]
+
+10.159.80.121
+10.159.80.123
+10.159.80.124
+10.159.80.125
+10.159.80.126

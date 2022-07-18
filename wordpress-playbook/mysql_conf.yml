@@ -1,0 +1,5 @@
+- hosts: database haproxy
+  become: true
+  gather_facts: False
+  roles:
+    - mysql
