@@ -1,0 +1,40 @@
+- hosts: wordpress 
+  become: true
+  tasks:
+    - name: Install haproxy
+      apt:
+       name: haproxy
+       state: present
+       update_cache: yes
+
+    - name: Replace config file
+      template:
+        src: haproxy-http.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: 0755
+
+- hosts: galera
+  become: true
+  tasks:
+    - name: Install haproxy
+      apt:
+       name: haproxy
+       state: present
+       update_cache: yes
+
+    - name: Replace config file
+      template:
+        src: haproxy-db.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: 0755
+
+- hosts: all
+  become: true
+  tasks:
+    - name: Restart and enable haproxy
+      ansible.builtin.service:
+        name: haproxy
+        state: restarted
+        enabled: yes
+
+

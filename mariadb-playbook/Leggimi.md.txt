@@ -1,0 +1,31 @@
+mariadb-playbook.yml
+
+questo script svolge le seguenti attività:
+
+1)installa mariadb-server sui 3 nodi designati
+2)installa mariadb-client suglia altri server
+3)configura i 3 nodi DB per essere un unico cluster galera
+4)crea il database per wordpress
+5)crea le utenze per l'uente wordpress e haproxy con relative grant
+
+note:
+
+per caricare la configurazione del cluster sui vari nodi ho creato 3 template inserendo direttamente gli ip dei server, pertanto è necessario modificarli per poterli adattare ad altre infrastrutture:
+
+i template si trovano nella cartella seguente:
+
+roles/mariadb-install/templates 
+
+galera1.j2
+galera2.j2
+galera3.j2
+
+le utenze utilizzate sul db sono le seguenti:
+
+user root password root
+user wordpress password wordpress
+user haproxy password haproxy
+
+Utilizzo:
+
+sudo ansible-playbook -i hosts mariadb-playbook.yml

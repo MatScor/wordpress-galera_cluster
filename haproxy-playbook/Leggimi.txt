@@ -1,0 +1,11 @@
+haproxy-playbook.yml
+
+Questo script installa il servizio haproxy e configura sia il server per bilanciare wordpress che quello per bilanciare il cluster.
+
+note:
+
+gli ip sono inseriti direttamente nei template pertanto è necessario modificarli per adattarlo alla propria infrastruttura
+
+Utilizzo:
+
+sudo ansible-playbook -i hosts haproxy-playbook.yml

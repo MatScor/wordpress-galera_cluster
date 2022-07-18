@@ -1,0 +1,33 @@
+- hosts: all
+  become: yes
+  tasks:
+    - name: install pymssql module
+      apt: name=python3-pymssql state=present update_cache=yes
+
+- hosts: galera_all
+  become: yes
+  roles:
+    - role: mariadb-install
+      become: yes
+      vars:
+        mariadb_version: 10.5
+        deny_remote_connections: false
+        configure_swappiness: true
+        swappiness: 0
+        mysql_root_password: root
+        create_database: true
+        database: wordpress
+        create_db_user: true
+        create_remote_db_user: true
+        db_user_name: wordpress
+        db_user_password: wordpress
+        priviliges: ALL,GRANT
+        mariadb_logrotate: 
+           rotate: 7
+           rotation: daily
+
+- hosts: others
+  become: yes
+  tasks:
+    - name: Install mariadb-client on others servers
+      apt: name=mariadb-client state=present update_cache=yes
